@@ -1,0 +1,22 @@
+{
+  "name": "zendesk-poc",
+  "version": "1.0.0",
+  "description": "Minimal Zendesk-like ticketing POC with webhook fan-out for Copilot Studio integration testing",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.20.0"
+  }
+}

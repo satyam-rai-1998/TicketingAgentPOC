@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ticketing POC — Ticket Detail</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header>
+  <h1>Ticketing POC</h1>
+  <a href="/">&larr; Back to tickets</a>
+</header>
+<main>
+  <div id="errorBox" class="error" style="display:none;"></div>
+  <div id="content"></div>
+</main>
+
+<script src="/app.js"></script>
+<script>
+const ticketId = new URLSearchParams(location.search).get("id");
+
+const STATUSES = ["new", "open", "pending", "solved", "closed"];
+const GROUPS = ["", "IT", "HR", "Billing", "Support", "Sales", "Compliance", "Claims", "Policy Services"];
+const COMPLIANCE_STATUSES = ["none", "pending_review", "cleared", "actioned"];
+const TYPES = ["", "question", "incident", "problem", "task"];
+const PRIORITIES = ["low", "normal", "high", "urgent"];
+
+function option(value, current, label) {
+  const selected = value === current ? "selected" : "";
+  return `<option value="${escapeHtml(value)}" ${selected}>${escapeHtml(label ?? (value || "(none)"))}</option>`;
+}
+
+async function loadTicket() {
+  const errorBox = document.getElementById("errorBox");
+  errorBox.style.display = "none";
+  try {
+    const data = await api(`/tickets/${ticketId}.json`);
+    render(data.ticket);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = "block";
+  }
+}
+
+function render(t) {
+  const flagged = t.flag_type && t.flag_type.length > 0;
+  document.getElementById("content").innerHTML = `
+    <div class="card">
+      <h2>#${t.id} — ${escapeHtml(t.subject)} ${flagged ? '<span class="badge flag">FLAGGED</span>' : ""}</h2>
+      <dl class="field-grid">
+        <dt>Description</dt><dd>${escapeHtml(t.description)}</dd>
+        <dt>Channel</dt><dd>${escapeHtml(t.channel)}</dd>
+        <dt>Requester</dt><dd>${escapeHtml(t.requester_name)} &lt;${escapeHtml(t.requester_email)}&gt;</dd>
+        <dt>Status</dt><dd class="status-${t.status}">${escapeHtml(t.status)}</dd>
+        <dt>Type</dt><dd>${escapeHtml(t.type || "—")}</dd>
+        <dt>Priority</dt><dd><span class="badge priority-${t.priority}">${escapeHtml(t.priority)}</span></dd>
+        <dt>Group (department)</dt><dd>${escapeHtml(t.group_name || "—")}</dd>
+        <dt>Assignee</dt><dd>${escapeHtml(t.assignee || "—")}</dd>
+        <dt>Tags</dt><dd>${t.tags.map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`).join("") || "—"}</dd>
+        <dt>Classification result</dt><dd>${escapeHtml(t.classification_result || "—")}</dd>
+        <dt>Confidence score</dt><dd>${t.confidence_score != null ? t.confidence_score : "—"}</dd>
+        <dt>Compliance status</dt><dd>${escapeHtml(t.compliance_status)}</dd>
+        <dt>Flag type</dt><dd>${t.flag_type.map((f) => `<span class="badge flag">${escapeHtml(f)}</span>`).join("") || "—"}</dd>
+        <dt>Created</dt><dd>${new Date(t.created_at).toLocaleString()}</dd>
+        <dt>Updated</dt><dd>${new Date(t.updated_at).toLocaleString()}</dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2>Update ticket (manual test override)</h2>
+      <form class="update-form" id="updateForm">
+        <div>
+          <label>Status</label>
+          <select name="status">${STATUSES.map((s) => option(s, t.status)).join("")}</select>
+        </div>
+        <div>
+          <label>Type</label>
+          <select name="type">${TYPES.map((ty) => option(ty, t.type || "")).join("")}</select>
+        </div>
+        <div>
+          <label>Priority</label>
+          <select name="priority">${PRIORITIES.map((p) => option(p, t.priority)).join("")}</select>
+        </div>
+        <div>
+          <label>Group (department)</label>
+          <select name="group_name">${GROUPS.map((g) => option(g, t.group_name || "")).join("")}</select>
+        </div>
+        <div>
+          <label>Assignee</label>
+          <input name="assignee" value="${escapeHtml(t.assignee || "")}" placeholder="e.g. jane.doe" />
+        </div>
+        <div>
+          <label>Compliance status</label>
+          <select name="compliance_status">${COMPLIANCE_STATUSES.map((c) => option(c, t.compliance_status)).join("")}</select>
+        </div>
+        <div>
+          <label>Classification result</label>
+          <input name="classification_result" value="${escapeHtml(t.classification_result || "")}" placeholder="e.g. billing_inquiry" />
+        </div>
+        <div>
+          <label>Confidence score</label>
+          <input name="confidence_score" type="number" step="0.01" min="0" max="1" value="${t.confidence_score ?? ""}" />
+        </div>
+        <div class="full">
+          <label>Tags (comma-separated)</label>
+          <input name="tags" value="${escapeHtml(t.tags.join(", "))}" />
+        </div>
+        <div class="full">
+          <label>Flag type (comma-separated, e.g. aml, fraud, pii)</label>
+          <input name="flag_type" value="${escapeHtml(t.flag_type.join(", "))}" />
+        </div>
+        <div class="full">
+          <button type="submit">Save changes</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Internal notes</h2>
+      <ul class="notes-list">
+        ${
+          t.notes.length
+            ? t.notes
+                .map(
+                  (n) => `<li>${escapeHtml(n.text)}<div class="meta">${escapeHtml(n.created_by)} — ${new Date(n.created_at).toLocaleString()}</div></li>`
+                )
+                .join("")
+            : '<li class="muted">No notes yet.</li>'
+        }
+      </ul>
+      <form id="noteForm">
+        <input type="text" name="created_by" placeholder="Your name" style="width:160px; padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-size:13px; margin-right:8px;" />
+        <input type="text" name="text" placeholder="Add an internal note..." style="width:50%; padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-size:13px; margin-right:8px;" required />
+        <button type="submit">Add note</button>
+      </form>
+    </div>
+  `;
+
+  document.getElementById("updateForm").addEventListener("submit", onUpdateSubmit);
+  document.getElementById("noteForm").addEventListener("submit", onNoteSubmit);
+}
+
+async function onUpdateSubmit(e) {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const payload = {
+    status: form.get("status"),
+    type: form.get("type") || null,
+    priority: form.get("priority"),
+    group_name: form.get("group_name") || null,
+    assignee: form.get("assignee") || null,
+    compliance_status: form.get("compliance_status"),
+    classification_result: form.get("classification_result") || null,
+    confidence_score: form.get("confidence_score") ? parseFloat(form.get("confidence_score")) : null,
+    tags: form.get("tags") || "",
+    flag_type: (form.get("flag_type") || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  };
+  try {
+    await api(`/tickets/${ticketId}.json`, { method: "PUT", body: JSON.stringify({ ticket: payload }) });
+    showToast("Ticket updated.");
+    await loadTicket();
+  } catch (err) {
+    showToast(`Update failed: ${err.message}`);
+  }
+}
+
+async function onNoteSubmit(e) {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const payload = { text: form.get("text"), created_by: form.get("created_by") || "dashboard-user" };
+  try {
+    await api(`/tickets/${ticketId}/notes.json`, { method: "POST", body: JSON.stringify({ note: payload }) });
+    e.target.reset();
+    await loadTicket();
+  } catch (err) {
+    showToast(`Add note failed: ${err.message}`);
+  }
+}
+
+loadTicket();
+</script>
+</body>
+</html>

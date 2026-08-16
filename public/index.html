@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ticketing POC — Tickets</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header>
+  <h1>Ticketing POC</h1>
+  <a href="/support.html" style="color:#9fd3ff; text-decoration:none; font-size:13px;">Public support site &rarr;</a>
+</header>
+<main>
+  <div class="toolbar">
+    <select id="statusFilter">
+      <option value="">All statuses</option>
+      <option value="new">New</option>
+      <option value="open">Open</option>
+      <option value="pending">Pending</option>
+      <option value="solved">Solved</option>
+      <option value="closed">Closed</option>
+    </select>
+    <select id="groupFilter">
+      <option value="">All groups</option>
+      <option value="IT">IT</option>
+      <option value="HR">HR</option>
+      <option value="Billing">Billing</option>
+      <option value="Support">Support</option>
+      <option value="Sales">Sales</option>
+      <option value="Compliance">Compliance</option>
+      <option value="Claims">Claims</option>
+      <option value="Policy Services">Policy Services</option>
+    </select>
+    <button id="refreshBtn" class="secondary">Refresh</button>
+    <span style="flex:1"></span>
+    <button id="seedBtn">Seed test data (~20 tickets)</button>
+  </div>
+
+  <div id="errorBox" class="error" style="display:none;"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Subject</th>
+        <th>Channel</th>
+        <th>Status</th>
+        <th>Priority</th>
+        <th>Group</th>
+        <th>Flags</th>
+        <th>Confidence</th>
+      </tr>
+    </thead>
+    <tbody id="ticketRows">
+      <tr><td colspan="8" class="muted">Loading...</td></tr>
+    </tbody>
+  </table>
+</main>
+
+<script src="/app.js"></script>
+<script>
+async function loadTickets() {
+  const status = document.getElementById("statusFilter").value;
+  const group = document.getElementById("groupFilter").value;
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (group) params.set("group_name", group);
+
+  const tbody = document.getElementById("ticketRows");
+  const errorBox = document.getElementById("errorBox");
+  errorBox.style.display = "none";
+
+  try {
+    const data = await api(`/tickets.json?${params.toString()}`);
+    renderRows(data.tickets);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = "block";
+    tbody.innerHTML = "";
+  }
+}
+
+function renderRows(tickets) {
+  const tbody = document.getElementById("ticketRows");
+  if (!tickets.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="muted">No tickets found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = tickets
+    .map((t) => {
+      const flagged = t.flag_type && t.flag_type.length > 0;
+      const flagBadges = flagged
+        ? t.flag_type.map((f) => `<span class="badge flag">${escapeHtml(f)}</span>`).join("")
+        : `<span class="muted">—</span>`;
+      const confidence = t.confidence_score != null ? t.confidence_score.toFixed(2) : "—";
+      return `
+        <tr class="${flagged ? "flagged" : ""}" onclick="location.href='/ticket.html?id=${t.id}'">
+          <td>#${t.id}</td>
+          <td>${escapeHtml(t.subject)}</td>
+          <td>${escapeHtml(t.channel)}</td>
+          <td class="status-${t.status}">${escapeHtml(t.status)}</td>
+          <td><span class="badge priority-${t.priority}">${escapeHtml(t.priority)}</span></td>
+          <td>${escapeHtml(t.group_name || "—")}</td>
+          <td>${flagBadges}</td>
+          <td>${confidence}</td>
+        </tr>`;
+    })
+    .join("");
+}
+
+document.getElementById("statusFilter").addEventListener("change", loadTickets);
+document.getElementById("groupFilter").addEventListener("change", loadTickets);
+document.getElementById("refreshBtn").addEventListener("click", loadTickets);
+
+document.getElementById("seedBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("seedBtn");
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  try {
+    await seedTestData((done, total) => {
+      btn.textContent = `Seeding ${done}/${total}...`;
+    });
+    showToast("Seed data created.");
+    await loadTickets();
+  } catch (err) {
+    showToast(`Seed failed: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
+loadTickets();
+</script>
+</body>
+</html>
