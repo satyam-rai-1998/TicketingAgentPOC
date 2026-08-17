@@ -42,7 +42,7 @@ router.post("/tickets.json", async (req, res, next) => {
         channel: "chat",
         requesterName: name,
         requesterEmail: email,
-        status: "new",
+        status: "open",
         tags: "chat-widget",
         flagType: "[]",
       },

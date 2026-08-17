@@ -32,8 +32,6 @@
       <option value="Policy Services">Policy Services</option>
     </select>
     <button id="refreshBtn" class="secondary">Refresh</button>
-    <span style="flex:1"></span>
-    <button id="seedBtn">Seed test data (~20 tickets)</button>
   </div>
 
   <div id="errorBox" class="error" style="display:none;"></div>
@@ -111,24 +109,6 @@ function renderRows(tickets) {
 document.getElementById("statusFilter").addEventListener("change", loadTickets);
 document.getElementById("groupFilter").addEventListener("change", loadTickets);
 document.getElementById("refreshBtn").addEventListener("click", loadTickets);
-
-document.getElementById("seedBtn").addEventListener("click", async () => {
-  const btn = document.getElementById("seedBtn");
-  btn.disabled = true;
-  const originalText = btn.textContent;
-  try {
-    await seedTestData((done, total) => {
-      btn.textContent = `Seeding ${done}/${total}...`;
-    });
-    showToast("Seed data created.");
-    await loadTickets();
-  } catch (err) {
-    showToast(`Seed failed: ${err.message}`);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
-});
 
 loadTickets();
 </script>

@@ -46,7 +46,7 @@ router.post("/tickets.json", async (req, res, next) => {
         channel,
         requesterName: body.requester_name,
         requesterEmail: body.requester_email,
-        status: VALID_STATUSES.includes(body.status) ? body.status : "new",
+        status: VALID_STATUSES.includes(body.status) ? body.status : "open",
         type: body.type ?? null,
         priority: VALID_PRIORITIES.includes(body.priority) ? body.priority : "normal",
         groupName: body.group_name ?? null,

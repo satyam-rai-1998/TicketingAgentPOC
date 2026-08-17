@@ -14,7 +14,7 @@ model Ticket {
   channel             String // email | chat | phone | web_form
   requesterName       String   @map("requester_name")
   requesterEmail      String   @map("requester_email")
-  status              String   @default("new") // new | open | pending | solved | closed
+  status              String   @default("open") // new | open | pending | solved | closed
   type                String? // question | incident | problem | task
   priority            String   @default("normal") // low | normal | high | urgent
   groupName           String?  @map("group_name")
